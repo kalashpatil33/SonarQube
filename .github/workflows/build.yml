@@ -10,18 +10,21 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
+      
+      # Add a step to verify connection to SonarQube
+      - name: Test SonarQube Connection
+        run: |
+          timeout 5 bash -c 'while ! nc -z ${{ secrets.SONAR_HOST_URL }} 9000; do sleep 1; done' || exit 1
+        
       - uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
-            -Dsonar.ws.timeout=300
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
-      # If you wish to fail your job when the Quality Gate is red, uncomment the
-      # following lines. This would typically be used to fail a deployment.
-      # - uses: sonarsource/sonarqube-quality-gate-action@master
-      #   timeout-minutes: 5
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+            -Dsonar.scanner.socketTimeout=300
+            -Dsonar.scanner.connectTimeout=300
+            -Dsonar.scanner.keepAlive=true
+            -Dsonar.verbose=true
+            -X
