@@ -1,0 +1,46 @@
+name: Build and SonarQube Scan
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build and SonarQube Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout code from GitHub repository
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      # Debug SonarQube URL and check connection
+      - name: Debug SonarQube URL
+        run: |
+          # Extract domain from SONAR_HOST_URL
+          SONAR_DOMAIN=$(echo ${{ secrets.SONAR_HOST_URL }} | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+          echo "Attempting to connect to domain: $SONAR_DOMAIN"
+          
+          # Try to resolve the domain
+          host $SONAR_DOMAIN || echo "Failed to resolve domain"
+          
+          # Test connection to SonarQube server on port 9000
+          timeout 10 bash -c "nc -zv $SONAR_DOMAIN 9000" || echo "Could not connect to port 9000"
+
+      # SonarQube Analysis step
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        with:
+          args: >
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+            -Dsonar.scanner.connectTimeout=300
+            -Dsonar.scanner.socketTimeout=300
+            -X
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      
+      # Additional build or deployment steps can be added here
+
