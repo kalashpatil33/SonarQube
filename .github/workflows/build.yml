@@ -12,10 +12,18 @@ jobs:
         with:
           fetch-depth: 0
       
-      # Add a step to verify connection to SonarQube
-      - name: Test SonarQube Connection
+      # Add debug step to check URL
+      - name: Debug SonarQube URL
         run: |
-          timeout 5 bash -c 'while ! nc -z ${{ secrets.SONAR_HOST_URL }} 9000; do sleep 1; done' || exit 1
+          # Extract domain from URL (remove protocol and any paths)
+          SONAR_DOMAIN=$(echo ${{ secrets.SONAR_HOST_URL }} | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+          echo "Attempting to connect to domain: $SONAR_DOMAIN"
+          
+          # Try to resolve the domain
+          host $SONAR_DOMAIN || echo "Failed to resolve domain"
+          
+          # Test connection
+          timeout 10 bash -c "nc -zv $SONAR_DOMAIN 9000" || echo "Could not connect to port 9000"
         
       - uses: sonarsource/sonarqube-scan-action@master
         env:
@@ -23,8 +31,7 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
-            -Dsonar.scanner.socketTimeout=300
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
             -Dsonar.scanner.connectTimeout=300
-            -Dsonar.scanner.keepAlive=true
-            -Dsonar.verbose=true
+            -Dsonar.scanner.socketTimeout=300
             -X
