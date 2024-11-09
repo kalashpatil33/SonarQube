@@ -1,25 +1,37 @@
-name: SonarQube Scan
-
+name: Build
 on:
   push:
     branches:
       - main
-
 jobs:
-  sonarqube:
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up SonarQube scanner
-        uses: sonarsource/sonarqube-scan-action@v1
+      - uses: actions/checkout@v2
         with:
-          sonar-token: ${{ secrets.SONAR_TOKEN }}
-          sonar-host-url: http://10.40.3.102:9000
-          sonar-project-key: my_project_key
-          sonar-project-name: My Project
-          sonar-project-version: 1.0
-
-      - name: Run SonarQube scan
-        run: sonar-scanner -Dsonar.host.url=http://10.40.3.102:9000 -Dsonar.login=$SONAR_TOKEN
+          fetch-depth: 0
+      
+      # Add debug step to check URL
+      - name: Debug SonarQube URL
+        run: |
+          # Extract domain from URL (remove protocol and any paths)
+          SONAR_DOMAIN=$(echo ${{ secrets.SONAR_HOST_URL }} | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+          echo "Attempting to connect to domain: $SONAR_DOMAIN"
+          
+          # Try to resolve the domain
+          host $SONAR_DOMAIN || echo "Failed to resolve domain"
+          
+          # Test connection
+          timeout 10 bash -c "nc -zv $SONAR_DOMAIN 9000" || echo "Could not connect to port 9000"
+        
+      - uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+            -Dsonar.scanner.connectTimeout=300
+            -Dsonar.scanner.socketTimeout=300
+            -X
